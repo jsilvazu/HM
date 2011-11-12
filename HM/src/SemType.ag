@@ -1,0 +1,14 @@
+INCLUDE "Type.ag"
+
+imports
+{
+import Data.List as List
+}
+
+ATTR Type [ || ftv: { [ String ] } ]
+
+SEM Type | TInt  lhs.ftv = []
+         | TBool lhs.ftv = []
+         | TVar  lhs.ftv = [@v] 
+         | TArrow lhs.ftv = @a.ftv ++ @r.ftv
+         | TSchema lhs.ftv = @t.ftv List.(\\) [ @v ]

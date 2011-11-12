@@ -1,0 +1,6 @@
+DATA Expr | EInt i:{Int} 
+          | EBool b: {Bool}
+          | Var   v: {String} 
+          | Abs x : { String } c: Expr
+          | App e1 : Expr e2: Expr
+          | Let x : {String} e1: Expr e2: Expr

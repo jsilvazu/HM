@@ -1,0 +1,5 @@
+DATA Type | TInt
+          | TBool
+          | TArrow a: Type r: Type
+          | TVar v : { String } 
+          | TSchema v :  { String } t : Type

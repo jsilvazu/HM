@@ -1,0 +1,16 @@
+name: HM
+version: 1.0
+cabal-version: >= 1.10
+License:BSD3
+License-File:LICENSE
+Author:
+Homepage:http://hunit.sourceforge.net/
+Category:Experimental
+Synopsis: Un version muy experimental del algoritmo Hindley-Milner basado en Dikjstra.
+Build-Type: Custom
+Executable hm
+  Build-depends: base
+  Main-Is:  Main.hs
+  Hs-Source-Dirs: src
+  default-language: Haskell98
+  Other-Modules: Expr, Type, SemType

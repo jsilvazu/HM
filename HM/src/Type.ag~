@@ -1,0 +1,4 @@
+DATA Type | TInt
+          | TBool
+          | TArrow a: Tipo r: Tipo
+          | TVar v : { String } 
