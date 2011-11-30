@@ -1,0 +1,28 @@
+imports
+{
+import CommonTypes
+import TyVarId
+import SemTyVarId
+}
+
+INCLUDE "Expr.ag"
+INCLUDE "Type.ag"
+
+ATTR Expr [gamma : ValGam | uid : TyVarId  | fo : FIOut ]
+
+SEM Expr | EInt  loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = Type_TInt }
+         | EBool loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = Type_TBool }
+         | Var   (loc.ty
+                 ,loc.err)        = valGamLookupType @v @lhs.gamma
+                 lhs.fo           = emptyFo { foTy = @ty
+                                            , foErrL = @err
+                                            }
+         | Abs   (loc.nv,loc.uid) = newTyVarId @lhs.uid
+                 b.gamma          = addGam @a @uid @lhs.gamma
+
+ATTR RootAbs [ || fo : FIOut ]
+
+SEM RootAbs | RootAbs exp.gamma = undefined
+                      exp.uid   = undefined
