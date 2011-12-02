@@ -8,4 +8,4 @@ newTyVarId :: TyVarId -> (TyVarId,TyVarId)
 newTyVarId n@(UID i) = (n,UID (i+1))
 
 liftType :: TyVarId -> Type 
-liftType v = Type_TVar v
+liftType v = TVar v

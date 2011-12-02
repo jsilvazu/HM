@@ -3,12 +3,14 @@ INCLUDE "Type.ag"
 imports
 {
 import Data.List as List
+import TyVarId
 }
 
-ATTR Type [ || ftv: { [ String ] } ]
+ATTR Type [ || ftv: { [ TyVarId ] } ]
 
-SEM Type | TInt  lhs.ftv = []
-         | TBool lhs.ftv = []
-         | TVar  lhs.ftv = [@v] 
-         | TArrow lhs.ftv = @a.ftv ++ @r.ftv
+SEM Type | TyAny   lhs.ftv = []
+         | TInt    lhs.ftv = []
+         | TBool   lhs.ftv = []
+         | TVar    lhs.ftv = [@v] 
+         | TArrow  lhs.ftv = @a.ftv ++ @r.ftv
          | TSchema lhs.ftv = @t.ftv List.(\\) [ @v ]

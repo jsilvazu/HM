@@ -1,5 +1,13 @@
-DATA Type | TInt
+imports
+{
+import TyVarId
+}
+
+DATA Type | TyAny
+          | TInt
           | TBool
           | TArrow a: Type r: Type
-          | TVar v : { String } 
-          | TSchema v :  { String } t : Type
+          | TVar v : { TyVarId } 
+          | TSchema v :  { TyVarId } t : Type
+
+DERIVING Type : Show

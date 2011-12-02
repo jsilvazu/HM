@@ -3,26 +3,54 @@ imports
 import CommonTypes
 import TyVarId
 import SemTyVarId
+import Type
 }
 
 INCLUDE "Expr.ag"
-INCLUDE "Type.ag"
 
 ATTR Expr [gamma : ValGam | uid : TyVarId  | fo : FIOut ]
 
 SEM Expr | EInt  loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = Type_TInt }
+                 lhs.fo           = @fo { foTy = TInt }
          | EBool loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = Type_TBool }
-         | Var   (loc.ty
+                 lhs.fo           = @fo { foTy = TBool }
+         | Var   (loc.ty_
                  ,loc.err)        = valGamLookupType @v @lhs.gamma
-                 lhs.fo           = emptyFo { foTy = @ty
-                                            , foErrL = @err
-                                            }
+                 (loc.uid
+                 ,loc.ty
+                 ,loc.c)          = instType @lhs.uid @ty_
+                 lhs.fo           = FIOut { foTy = @ty
+                                          , foErrL = @err
+                                          , foConstr = @c
+                                          }
          | Abs   (loc.nv,loc.uid) = newTyVarId @lhs.uid
-                 b.gamma          = addGam @a @uid @lhs.gamma
+                 b.gamma          = addGam @a (ValGamInfo (TVar @nv)) @lhs.gamma
+                 loc.ty_          = foTy @b.fo
+                 loc.c_           = foConstr @b.fo
+                 loc.tyArg        = @c_ <+> (TVar @nv)
+                 loc.ty           = TArrow @tyArg @ty_
+                 loc.fo           = @b.fo { foTy = @ty }
+         | App   loc.tyArg        = foTy @e1.fo
+                 loc.cArg         = foConstr @e1.fo
+                 e2.gamma         = @cArg <+> @lhs.gamma
+                 loc.tyBody       = foTy @e2.fo
+                 loc.cBody        = foConstr @e2.fo
+                 (loc.uid
+                 ,loc.alpha)      = nextTyVarId @e2.uid
+                 loc.alpha'       = TVar @alpha
+                 (loc.cPhi
+                 ,loc.cErr)       = unify (@cBody <+> @tyArg) (TArrow @tyBody @alpha')
+                 loc.fo           = emptyFo { foTy     = @cPhi <+>  @alpha' 
+                                            , foConstr = @cPhi <+> @cBody <+> @cArg
+                                            , foErrL   = @cErr ++ (foErrL @e1.fo) ++ (foErrL @e2.fo)
+                                            }
+         | Let   loc.tyE1         = foTy @e1.fo
+                 loc.cE1          = foConstr @e1.fo
+                 e2.gamma         = addGam @x (ValGamInfo @tyE1) (@cE1 <+> @lhs.gamma)
+                 loc.cE2          = foConstr @e2.fo
+                 lhs.fo           = @e2.fo { foConstr = @cE2 <+> @cE1 }
 
 ATTR RootAbs [ || fo : FIOut ]
 
-SEM RootAbs | RootAbs exp.gamma = undefined
-                      exp.uid   = undefined
+SEM RootAbs | RootAbs exp.gamma = emptyGam
+                      exp.uid   = zeroTyVarId

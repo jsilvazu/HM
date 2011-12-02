@@ -1,6 +1,15 @@
+imports
+{
+import CommonTypes
+}
+
 DATA Expr | EInt i:{Int} 
           | EBool b: {Bool}
-          | Var   v: {String} 
-          | Abs x : { String } c: Expr
+          | Var   v: {HsName} 
+          | Abs a : {HsName} b: Expr
           | App e1 : Expr e2: Expr
-          | Let x : {String} e1: Expr e2: Expr
+          | Let x : {HsName} e1: Expr e2: Expr
+
+DATA RootAbs | RootAbs exp : Expr
+
+DERIVING Expr : Show

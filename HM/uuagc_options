@@ -1,8 +1,0 @@
-file : "src/Expr.ag"
-options: data, catas, semfuns, signatures, pretty, rename, module "Expr" 
-
-file : "src/Type.ag"
-options: data, catas, semfuns, signatures, pretty, rename, module "Type" 
-
-file : "src/SemType.ag"
-options: data, catas, semfuns, signatures, pretty, rename, module "SemType" 

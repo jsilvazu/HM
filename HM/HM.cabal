@@ -13,4 +13,8 @@ Executable hm
   Main-Is:  Main.hs
   Hs-Source-Dirs: src
   default-language: Haskell98
-  Other-Modules: Expr, Type, SemType
+  Other-Modules: Expr, Type, SemType, SemExprTy
+  x-agmodule: file : "src/Expr.ag" options : data, catas, semfuns, signatures, pretty, rename,  module "Expr"
+  x-agmodule: file : "src/Type.ag" options: data, catas, semfuns, signatures, pretty, module "Type" 
+  x-agmodule: file : "src/SemType.ag" options: data, catas, semfuns, signatures, pretty, module "SemType"
+  x-agmodule: file : "src/SemExprTy.ag" options: data, catas, semfuns, signatures, pretty, wrappers, module "SemExprTy" 
