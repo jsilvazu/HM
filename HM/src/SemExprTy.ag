@@ -4,16 +4,22 @@ import CommonTypes
 import TyVarId
 import SemTyVarId
 import Type
+import ParserT
+import TypeHelper
+import Data.Maybe
 }
 
 INCLUDE "Expr.ag"
 
 ATTR Expr [gamma : ValGam | uid : TyVarId  | fo : FIOut ]
 
-SEM Expr | EInt  loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = TInt }
+SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
+                 lhs.fo           = @fo { foTy = TInt } -- llenar la salida con int
          | EBool loc.fo           = emptyFo
                  lhs.fo           = @fo { foTy = TBool }
+         | EUnit loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = TUnit }
+
          | Var   (loc.ty_
                  ,loc.err)        = valGamLookupType @v @lhs.gamma
                  (loc.uid
@@ -23,6 +29,7 @@ SEM Expr | EInt  loc.fo           = emptyFo
                                           , foErrL = @err
                                           , foConstr = @c
                                           }
+
          | Abs   (loc.nv,loc.uid) = newTyVarId @lhs.uid
                  b.gamma          = addGam @a (ValGamInfo (TVar @nv)) @lhs.gamma
                  loc.ty_          = foTy @b.fo
@@ -30,8 +37,13 @@ SEM Expr | EInt  loc.fo           = emptyFo
                  loc.tyArg        = @c_ <+> (TVar @nv)
                  loc.ty           = TArrow @tyArg @ty_
                  loc.fo           = @b.fo { foTy = @ty }
-         | App   loc.tyArg        = foTy @e1.fo
-                 loc.cArg         = foConstr @e1.fo
+
+
+
+
+
+         | App   loc.tyArg        = foTy @e1.fo                -- tipo
+                 loc.cArg         = foConstr @e1.fo            --constrain
                  e2.gamma         = @cArg <+> @lhs.gamma
                  loc.tyBody       = foTy @e2.fo
                  loc.cBody        = foConstr @e2.fo
@@ -40,15 +52,243 @@ SEM Expr | EInt  loc.fo           = emptyFo
                  loc.alpha'       = TVar @alpha
                  (loc.cPhi
                  ,loc.cErr)       = unify (@cBody <+> @tyArg) (TArrow @tyBody @alpha')
-                 loc.fo           = emptyFo { foTy     = @cPhi <+>  @alpha' 
+                 loc.fo           = emptyFo { foTy     = @cPhi <+>  @alpha'
                                             , foConstr = @cPhi <+> @cBody <+> @cArg
                                             , foErrL   = @cErr ++ (foErrL @e1.fo) ++ (foErrL @e2.fo)
                                             }
+
          | Let   loc.tyE1         = foTy @e1.fo
                  loc.cE1          = foConstr @e1.fo
                  e2.gamma         = addGam @x (ValGamInfo @tyE1) (@cE1 <+> @lhs.gamma)
                  loc.cE2          = foConstr @e2.fo
                  lhs.fo           = @e2.fo { foConstr = @cE2 <+> @cE1 }
+
+
+
+         | Prod  loc.ty1_         = foTy @t1.fo
+                 loc.ty2_         = foTy @t2.fo
+                 loc.ty           = TProd @ty1_ @ty2_
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = @ty }
+
+
+
+
+
+
+
+
+
+         | IsZero    loc.ty       = foTy @i.fo
+                 (loc.cty_
+                 ,loc.err)        = unify TInt  @ty
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo  { foTy = TBool
+                                          , foErrL = @err
+                                          }
+
+         | If    loc.ty           = foTy @b.fo
+                  (loc.t_
+                 ,loc.err)        = unify TBool  @ty
+                  loc.te1         = foTy @e1.fo
+                  loc.te2         = foTy @e2.fo
+                  (loc.cty_
+                 ,loc.err1)       = unify @te1  @te2
+                  loc.fo          = emptyFo
+
+                  --mirar
+                  lhs.fo          = @fo  { foTy = @cty_ <+> @te2
+                                          , foErrL = @err ++ @err1
+                                          }
+
+        | First  loc.ty           = foTy @p.fo
+                 (loc.t
+                 ,loc.err)        = case ( (isProdType @ty)) of
+                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            (Just (t1,t2)) -> (t1, [])
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = @t
+                                          , foErrL = @err
+                                        }
+
+        | Second loc.ty           = foTy @p.fo
+                 loc.c            = foConstr @p.fo
+                 (loc.t
+                 ,loc.err)        = case ( (isProdType @ty)) of
+                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            (Just (t1,t2)) -> (t2, [])
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = @t
+                                          , foErrL = @err
+                                        }
+
+
+
+       | With    (loc.ty1_          --variable 1
+                 ,loc.err1)         = valGamLookupType @v1 @lhs.gamma
+                 (loc.ty2_          --variable 2
+                 ,loc.err2)         = valGamLookupType @v2 @lhs.gamma
+                 (loc.uid1
+                 ,loc.ty1
+                 ,loc.c1)           = instType @lhs.uid @ty1_ --tipo var1
+                 (loc.uid2
+                 ,loc.ty2
+                 ,loc.c2)           = instType @lhs.uid @ty2_ --tipo var2
+
+                 (loc.nv1,loc.uid11)= newTyVarId @lhs.uid                                  --Nuevo gamma
+                 loc.gamma1         = addGam @v1 (ValGamInfo (TVar @nv1)) @lhs.gamma
+                 (loc.nv2,loc.uid22)= newTyVarId @uid11
+                 n.gamma1           = addGam @v2 (ValGamInfo (TVar @nv2)) @gamma1
+
+                 loc.tym            = foTy @m.fo
+                 loc.cm             = foConstr @m.fo
+                 ((loc.tm1,loc.tm2)
+                 ,loc.errm)         = case ( (isProdType @tym)) of --prueba de que es prodtype
+                                            Nothing   -> ((TyAny,TyAny) , [ErrGen "Error"])
+                                            (Just (t1,t2)) -> ((t1,t2), [])
+
+                 (loc.tm1_
+                 ,loc.errm1)          = unify @ty1  @tm1
+                 (loc.tm2_
+                 ,loc.errm2)          = unify @ty2  @tm2
+
+                 lhs.fo               = @n.fo { foErrL = @err1 ++ @err2 ++ @errm ++ @errm1 ++ @errm2
+                                               }
+
+
+
+
+-- ----------------------------------------------------------------------------------
+
+       | InLeft  loc.tt           = @t
+                 loc.ty           = foTy @m1.fo
+                 loc.c            = foConstr @m1.fo
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = TUn @ty @tt
+                                        }
+
+       | InRight loc.tt           = @t
+                 loc.ty           = foTy @m2.fo
+                 loc.c            = foConstr @m2.fo
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = TUn @tt @ty
+                                        }
+
+-- --------------------------------------------------------------------------------------
+
+
+       | IsLeft  loc.ty           = foTy @p.fo
+                 loc.c            = foConstr @p.fo
+                 (loc.t
+                 ,loc.err)        = case ( (isUnType @ty)) of
+                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            (Just (t1,t2)) -> (TBool, [])
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = @t
+                                          , foErrL = @err
+                                        }
+
+       | IsRight loc.ty           = foTy @p.fo
+                 loc.c            = foConstr @p.fo
+                 (loc.t
+                 ,loc.err)        = case ( (isUnType @ty)) of
+                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            (Just (t1,t2)) -> (TBool, [])
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = @t
+                                          , foErrL = @err
+                                        }
+
+       | AsLeft  loc.ty           = foTy @p.fo
+                 loc.c            = foConstr @p.fo
+                 (loc.t
+                 ,loc.err)        = case ( (isUnType @ty)) of
+                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            (Just (t1,t2)) -> (t1, [])
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = @t
+                                          , foErrL = @err
+                                        }
+
+       | AsRight loc.ty           = foTy @p.fo
+                 loc.c            = foConstr @p.fo
+                 (loc.t
+                 ,loc.err)        = case ( (isUnType @ty)) of
+                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            (Just (t1,t2)) -> (t2, [])
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy = @t
+                                          , foErrL = @err
+                                        }
+
+       | Case    loc.tym           = foTy     @m.fo            --tipo m
+                 loc.cm            = foConstr @m.fo
+
+                 ((loc.t1,loc.t2)
+                 ,loc.errm)        = case ( (isUnType @tym)) of   -- m es union?
+                                            Nothing   -> ((TyAny,TyAny), [ErrGen "Error"])
+                                            (Just (t1,t2)) -> ((t1,t2), [])
+
+                  (loc.tyv1_          --variable1
+                 ,loc.errv1)         = valGamLookupType @v1 @lhs.gamma
+                 (loc.uidv1
+                 ,loc.tyv1
+                 ,loc.cv1)           = instType @lhs.uid @tyv1_ --tipo var1
+
+                 (loc.tyv2_          --variable2
+                 ,loc.errv2)         = valGamLookupType @v2 @lhs.gamma
+                 (loc.uidv2
+                 ,loc.tyv2
+                 ,loc.cv2)           = instType @lhs.uid @tyv2_ --tipo var2
+
+                 (loc.nv1,loc.uid1 ) = newTyVarId @lhs.uid                       --nuevo gamma
+                 n1.gamma           = addGam @v1 (ValGamInfo (TVar @nv1)) @lhs.gamma
+
+                 (loc.nv2,loc.uid2 ) = newTyVarId @lhs.uid                       --nuevo gamma
+                 n2.gamma           = addGam @v2 (ValGamInfo (TVar @nv2)) @lhs.gamma
+
+
+
+                 (loc.tu1_
+                 ,loc.erru1)          = unify @t1  @tyv1
+                 (loc.tu2_
+                 ,loc.erru2)          = unify @t2  @tyv2
+
+                 (loc.cun
+                 ,loc.errun)          = unify (foTy @n1.fo)  (foTy @n2.fo)       -- comparo tipos n1 y n2
+
+                 --mirar
+                 loc.fo          = emptyFo
+                 lhs.fo          = @fo  {  foTy = @cun <+> @tyv2
+                                         , foErrL = @errm ++ @errv1 ++ @errv2 ++ @erru1 ++ @erru2 ++ @errun
+                                        }
+
+-------------------------------------------------------------------------------------------
+
+       | Record  --(loc.l,loc.ex)       = head(@e)
+                loc.ex       = (head @e.fo)
+                loc.f        = (snd @ex)
+                loc.d        = foTy @f.fo
+                --(loc.l,
+                --    loc.t) = @f
+                -- loc.t      = (@el.fo)
+                -- loc.th     = @t
+                loc.fo           = emptyFo
+                lhs.fo           = @fo {
+                                        foTy = @d
+                                    }
+
+
+
+
+
+
+
+
+
+ATTR Exprs [gammma : ValGam | uid : TyVarId | fo USE {:} {[]} : {[(HsName, FIOut)]} ]
+
+SEM Expr | lhs.fo =
 
 ATTR RootAbs [ || fo : FIOut ]
 

@@ -1,14 +1,58 @@
 imports
 {
 import CommonTypes
+import Type
 }
 
-DATA Expr | EInt i:{Int} 
-          | EBool b: {Bool}
-          | Var   v: {HsName} 
-          | Abs a : {HsName} b: Expr
-          | App e1 : Expr e2: Expr
-          | Let x : {HsName} e1: Expr e2: Expr
+DATA Expr | EInt    i:  {Int}
+          | EBool   b:  {Bool}
+          | EUnit   u:  {Unit}
+          | Var     v:  {HsName}
+          | Abs     a:  {HsName}
+                    b:  Expr
+          | App     e1: Expr
+                    e2: Expr
+          | Let     x:  {HsName}
+                    e1: Expr
+                    e2: Expr
+
+-- expresiones Bool
+          | IsZero  i:  Expr
+          | If      b:  Expr
+                    e1: Expr
+                    e2: Expr
+-- expresiones prod
+          | Prod    t1: Expr
+                    t2: Expr
+
+          | First   p:  Expr
+          | Second  p:  Expr
+          | With    v1: {HsName}
+                    v2: {HsName}
+                    m:  Expr
+                    n:  Expr
+
+-- expresiones union
+          | InLeft  t:  Type
+                    m1: Expr
+          | InRight t:  Type
+                    m2: Expr
+
+          | IsLeft  p:  Expr
+          | IsRight p:  Expr
+
+          | AsLeft  p:  Expr
+          | AsRight p:  Expr
+
+          | Case    m:  Expr
+                    v1: {HsName}
+                    n1: Expr
+                    v2: {HsName}
+                    n2: Expr
+
+          | Record  e : Exprs
+
+TYPE Exprs = [{(HsName, Expr)}]
 
 DATA RootAbs | RootAbs exp : Expr
 

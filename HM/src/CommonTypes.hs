@@ -30,7 +30,7 @@ instance Show Err where
     show (ErrGen s)   = "Generic Error: " ++ s
     show (ErrName hs) = "Name not found: " ++ show hs
     show (ErrUnify s) = "Unify algorithm fails: " ++ s
- 
+
 type ErrL = [Err]
 
 -- Output information
@@ -73,7 +73,7 @@ type ValGam = Gam HsName ValGamInfo
 data HsName = HNm String deriving (Eq,Ord)
 
 instance Show HsName where
-    show (HNm s) = show s
+    show (HNm s) =  "(HNm " ++ show s ++ ")"
 
 valGamLookup :: HsName -> ValGam -> Maybe ValGamInfo
 valGamLookup = gamLookup
@@ -127,7 +127,9 @@ subsTypeHelper ::  Type -> (TyVarId,Type) -> Type
 subsTypeHelper t@(TyAny)       (_,_)   = t
 subsTypeHelper t@(TInt)        (_,_)   = t
 subsTypeHelper t@(TBool)       (_,_)   = t
+subsTypeHelper t@(TUnit)       (_,_)   = t
 subsTypeHelper t@(TArrow a r)  (tv,nt) = TArrow (subsTypeHelper a (tv,nt))  (subsTypeHelper r (tv,nt))
+subsTypeHelper t@(TProd a r)   (tv,nt) = TProd (subsTypeHelper a (tv,nt))  (subsTypeHelper r (tv,nt))
 subsTypeHelper t@(TVar v)      (tv,nt)
     | v == tv                               = nt
     | otherwise                             = t
@@ -147,14 +149,21 @@ unify :: Type -> Type -> (C,ErrL)
 unify TyAny          TyAny          = (emptyCnstr,[])
 unify TInt           TInt           = (emptyCnstr,[])
 unify TBool          TBool          = (emptyCnstr,[])
+unify TUnit          TUnit          = (emptyCnstr,[])
 unify (TArrow a1 b1) (TArrow a2 b2) = let (c1,er1) = unify a1 a2
                                           (c2,er2) = unify (c1 <+> b1) (c1 <+> b2)
                                       in (c1 <+> c2, er1++er2)
+unify (TProd a1 b1) (TProd a2 b2)   = let (c1,er1) = unify a1 a2
+                                          (c2,er2) = unify (c1 <+> b1) (c1 <+> b2)
+                                      in (c1 <+> c2, er1++er2)
+
+-- unify (TProd a1 b1)          _      = (emptyCnstr,[])
+
 unify (TSchema _ _)  _              = (emptyCnstr,[ErrUnify "An schema cannot be unified"])
 unify (TVar v) t
-      | not $ v `elem` ftv t        = (cnstrTyUnit v t, [])
+      | not $ v `elem` ftv t          = (cnstrTyUnit v t, [])
       | otherwise                   = (emptyCnstr,[ErrUnify $ "var: " ++ (show v) ++ "is not free"])
 unify t                   (TVar v)
-      | not $  v `elem` ftv t       = (cnstrTyUnit v t, [])
+      | not $  v `elem` ftv t         = (cnstrTyUnit v t, [])
       | otherwise                   = (emptyCnstr,[ErrUnify $ "var: " ++ (show v) ++ "is not free"])
 unify _                   _         = (emptyCnstr,[ErrUnify "types cannot be unified"])

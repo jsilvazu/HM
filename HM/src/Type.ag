@@ -6,8 +6,18 @@ import TyVarId
 DATA Type | TyAny
           | TInt
           | TBool
-          | TArrow a: Type r: Type
-          | TVar v : { TyVarId } 
-          | TSchema v :  { TyVarId } t : Type
+          | TUnit
+          | TArrow  a:  Type
+                    r:  Type
+          | TVar    v:  { TyVarId }
+          | TSchema v:  { TyVarId }
+                    t:  Type
+
+          | TProd   t1: Type
+                    t2: Type
+          | TUn     t1: Type
+                    t2: Type
+          | TRec    t :{[Type]}
+
 
 DERIVING Type : Show
