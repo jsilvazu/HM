@@ -7,17 +7,29 @@ DATA Type | TyAny
           | TInt
           | TBool
           | TUnit
-          | TArrow  a:  Type
-                    r:  Type
-          | TVar    v:  { TyVarId }
-          | TSchema v:  { TyVarId }
-                    t:  Type
+          | TArrow   a:  Type
+                     r:  Type
+          | TVar     v:  { TyVarId }
+          | TSchema  v:  { TyVarId }
+                     t:  Type
 
-          | TProd   t1: Type
-                    t2: Type
-          | TUn     t1: Type
-                    t2: Type
-          | TRec    t :{[Type]}
+          | TProd    t1: Type
+                     t2: Type
+          | TUn      t1: Type
+                     t2: Type
+          | TRecord  t: Types
+          | TVariant t: Types
+          ----------------------
+          | TRec     l: { String }
+                     t: Type
+          | TVal     l: { String }
+                     v: Type
+                     t: Type
+-----------------------------------------------------------------------------------------------
+
+          | TRecords t: { String }
+
+TYPE Types = [{(String,Type)}]
 
 
 DERIVING Type : Show

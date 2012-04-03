@@ -13,10 +13,18 @@ module CommonTypes(Err(..)
                   ,ValGamInfo(..)
                   ,instType
                   ,Substitutable(..)
-                  ,unify) where
+                  ,unify
+                  ,f1
+                  ,f2
+                  ,f3
+                  ,revis
+                  ,f4
+                  ,f5) where
 
 import Type
+import List
 import TyVarId
+import SemTyVarId
 import qualified Data.List as L
 import qualified TypeHelper as TH
 
@@ -124,12 +132,12 @@ subsType :: C -> Type -> Type
 subsType (C cs) t = foldl subsTypeHelper t cs
 
 subsTypeHelper ::  Type -> (TyVarId,Type) -> Type
-subsTypeHelper t@(TyAny)       (_,_)   = t
-subsTypeHelper t@(TInt)        (_,_)   = t
-subsTypeHelper t@(TBool)       (_,_)   = t
-subsTypeHelper t@(TUnit)       (_,_)   = t
-subsTypeHelper t@(TArrow a r)  (tv,nt) = TArrow (subsTypeHelper a (tv,nt))  (subsTypeHelper r (tv,nt))
-subsTypeHelper t@(TProd a r)   (tv,nt) = TProd (subsTypeHelper a (tv,nt))  (subsTypeHelper r (tv,nt))
+subsTypeHelper t@(TyAny)       (_,_)        = t
+subsTypeHelper t@(TInt)        (_,_)        = t
+subsTypeHelper t@(TBool)       (_,_)        = t
+subsTypeHelper t@(TUnit)       (_,_)        = t
+subsTypeHelper t@(TArrow a r)  (tv,nt)      = TArrow (subsTypeHelper a (tv,nt))  (subsTypeHelper r (tv,nt))
+subsTypeHelper t@(TProd a r)   (tv,nt)      = TProd (subsTypeHelper a (tv,nt))  (subsTypeHelper r (tv,nt))
 subsTypeHelper t@(TVar v)      (tv,nt)
     | v == tv                               = nt
     | otherwise                             = t
@@ -156,14 +164,105 @@ unify (TArrow a1 b1) (TArrow a2 b2) = let (c1,er1) = unify a1 a2
 unify (TProd a1 b1) (TProd a2 b2)   = let (c1,er1) = unify a1 a2
                                           (c2,er2) = unify (c1 <+> b1) (c1 <+> b2)
                                       in (c1 <+> c2, er1++er2)
+unify (TRecord a) (TRecord b)
+                                    = unifyl a b
+--                                          (c1,er) = unify a b
+--                                      in (c1, er)
 
 -- unify (TProd a1 b1)          _      = (emptyCnstr,[])
 
 unify (TSchema _ _)  _              = (emptyCnstr,[ErrUnify "An schema cannot be unified"])
 unify (TVar v) t
-      | not $ v `elem` ftv t          = (cnstrTyUnit v t, [])
+      | not $ v `elem` ftv t        = (cnstrTyUnit v t, [])
       | otherwise                   = (emptyCnstr,[ErrUnify $ "var: " ++ (show v) ++ "is not free"])
 unify t                   (TVar v)
-      | not $  v `elem` ftv t         = (cnstrTyUnit v t, [])
+      | not $  v `elem` ftv t       = (cnstrTyUnit v t, [])
       | otherwise                   = (emptyCnstr,[ErrUnify $ "var: " ++ (show v) ++ "is not free"])
 unify _                   _         = (emptyCnstr,[ErrUnify "types cannot be unified"])
+
+
+
+unifyl :: [(String,Type)] -> [(String,Type)] -> (C,ErrL)
+unifyl []     []                     = (emptyCnstr,[])
+unifyl (x:xs) (y:ys)                 = let
+                                          (c1, er1) =  unify (snd x) (snd y)
+                                          (c2, er2) =  unifyst (fst x) (fst y)
+                                          (cn, ern) =  unifyl xs ys
+                                      in (c1 <+> cn, er1 ++ er2 ++ ern)
+                                         --(c2 , er2 )
+
+unifyst :: String -> String -> (C,ErrL)
+unifyst l1 l2           = if l1 == l2
+                            then (emptyCnstr,[])
+                            else (emptyCnstr,[ErrUnify $ "Las var: " ++ (show l1) ++ " y " ++ (show l2) ++ "son diferentes. "])
+
+f1 :: [FIOut] -> [(String, Type)]
+f1 [] = []
+f1 (x:xs) = let
+                (TRec l t) = foTy x
+            in (l,t) : f1 xs
+
+
+--f2 :: String -> [(String, Type)] -> (Type,a)
+f2 l []                 = (TyAny, [ErrGen ("No hay coincidencias con el label '" ++ l ++ "'")])
+f2 l (x:xs)             = if (l == fst x)
+                            then (snd x, [])
+                            else f2 l xs
+
+--f3 :: [HsName]
+f3 uid gam1 gam2 [] lt  ler = (gam2, lt, ler) --devuelve un gamma, una lista de tipos y una lista de errores
+f3 uid gam1 gam2 (x:xs) lt ler
+                    = let
+                         (ty_,err)     = valGamLookupType (snd x) gam1 --variable, error
+                         (ui,ty,ctr)   = instType uid ty_ --uid, tipo var, constrain
+                         (lvar, u)     = newTyVarId ui
+                         lgam          = addGam (snd x) (ValGamInfo (TVar lvar)) gam2
+                         str           = let
+                                            s = fst x
+                                         in s
+                      in f3 ui gam1 lgam xs ((str,ty) : lt) (err : ler)
+
+ff :: String -> [(String, Type)] -> Maybe (String, Type)
+ff s []     = Nothing
+ff s (x:xs) =
+            if s == fst x
+              then Just x
+              else ff s xs
+
+--comparar::[(String, Type)] -> [(String, Type)] -> Bool
+--[] []         = True
+--_  []         = False
+--[] _          = False
+--(x:xs) (y:ys) = (fst x) == (fst y) && comparar xs ys
+revis :: [(String, Type)] -> Maybe String
+revis []    = Nothing
+--revis [] ls = Just "Error, hay mas valores que no fueron verificados"
+revis (x:xs) = case ff (fst x) xs of
+                    Just y -> Just ("El label '" ++ fst y ++ "' está repetido.")
+                    Nothing -> revis xs
+
+--revis1 :: [String] -> [(String, Type)] -> Maybe String
+--revis1 [] [] = Nothing
+--revis1 [] ls = Just "Error, hay expresiones que no están asociadas"
+--revis1 (x:xs) ls = case ff x ls of
+--                    Nothing -> Just (x ++ " no tiene valores asociados")
+--                    Just y -> revis1 xs (deleteBy (\a b -> (fst a) == (fst b)) y ls)
+
+f4 :: [FIOut] -> ([(String, Type, Type)])
+f4 [] = []
+f4 (x:xs) = let
+                (TVal l v n) = foTy x
+            in (l,v, n) : f4 xs
+
+f5 :: [(String, Type)] -> [(String, Type, Type)] -> Type -> Type
+f5 l1 l2 ty = TyAny
+
+--f4 uid gam lr = case lr of
+--                [] -> []
+--                (x:xs) -> let
+--                               v =
+--                                    (loc.tyv1_       --variable
+--                                     ,loc.errv1)      = valGamLookupType @v1 @lhs.gamma
+--                                     (loc.uidv1
+--                                     ,loc.tyv1
+--                                     ,loc.cv1)        = instType @lhs.uid @tyv1_ --tipo var1

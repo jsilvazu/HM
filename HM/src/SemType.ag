@@ -19,4 +19,4 @@ SEM Type | TyAny   lhs.ftv = []
          | TProd   lhs.ftv = @t1.ftv ++ @t2.ftv
          | TUn     lhs.ftv = @t1.ftv ++ @t2.ftv
 
---         | TRec    lhs.ftv = @t.ftv
+

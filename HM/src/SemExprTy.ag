@@ -7,11 +7,12 @@ import Type
 import ParserT
 import TypeHelper
 import Data.Maybe
+import UU.Util.Utils
 }
 
 INCLUDE "Expr.ag"
 
-ATTR Expr [gamma : ValGam | uid : TyVarId  | fo : FIOut ]
+ATTR Expr Rec Val [gamma : ValGam | uid : TyVarId  | fo : FIOut ]
 
 SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  lhs.fo           = @fo { foTy = TInt } -- llenar la salida con int
@@ -25,8 +26,8 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  (loc.uid
                  ,loc.ty
                  ,loc.c)          = instType @lhs.uid @ty_
-                 lhs.fo           = FIOut { foTy = @ty
-                                          , foErrL = @err
+                 lhs.fo           = FIOut { foTy     = @ty
+                                          , foErrL   = @err
                                           , foConstr = @c
                                           }
 
@@ -97,17 +98,17 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                   loc.fo          = emptyFo
 
                   --mirar
-                  lhs.fo          = @fo  { foTy = @cty_ <+> @te2
+                  lhs.fo          = @fo  { foTy    = @cty_ <+> @te2
                                           , foErrL = @err ++ @err1
                                           }
 
         | First  loc.ty           = foTy @p.fo
                  (loc.t
                  ,loc.err)        = case ( (isProdType @ty)) of
-                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            Nothing        -> (TyAny, [ErrGen "Error no es del tipo producto"])
                                             (Just (t1,t2)) -> (t1, [])
                  loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = @t
+                 lhs.fo           = @fo { foTy     = @t
                                           , foErrL = @err
                                         }
 
@@ -115,44 +116,47 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  loc.c            = foConstr @p.fo
                  (loc.t
                  ,loc.err)        = case ( (isProdType @ty)) of
-                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            Nothing        -> (TyAny, [ErrGen "Error no es del tipo producto"])
                                             (Just (t1,t2)) -> (t2, [])
                  loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = @t
+                 lhs.fo           = @fo { foTy     = @t
                                           , foErrL = @err
                                         }
 
 
 
-       | With    (loc.ty1_          --variable 1
-                 ,loc.err1)         = valGamLookupType @v1 @lhs.gamma
-                 (loc.ty2_          --variable 2
-                 ,loc.err2)         = valGamLookupType @v2 @lhs.gamma
+        | With   (loc.ty1_        --variable 1
+                 ,loc.err1)       = valGamLookupType @v1 @lhs.gamma
+                 (loc.ty2_        --variable 2
+                 ,loc.err2)       = valGamLookupType @v2 @lhs.gamma
                  (loc.uid1
                  ,loc.ty1
-                 ,loc.c1)           = instType @lhs.uid @ty1_ --tipo var1
+                 ,loc.c1)         = instType @lhs.uid @ty1_ --tipo var1
                  (loc.uid2
                  ,loc.ty2
-                 ,loc.c2)           = instType @lhs.uid @ty2_ --tipo var2
+                 ,loc.c2)         = instType @lhs.uid @ty2_ --tipo var2
 
-                 (loc.nv1,loc.uid11)= newTyVarId @lhs.uid                                  --Nuevo gamma
-                 loc.gamma1         = addGam @v1 (ValGamInfo (TVar @nv1)) @lhs.gamma
-                 (loc.nv2,loc.uid22)= newTyVarId @uid11
-                 n.gamma1           = addGam @v2 (ValGamInfo (TVar @nv2)) @gamma1
+                 (loc.nv1,
+                 loc.uid11)       = newTyVarId @lhs.uid                                  --Nuevo gamma
+                 loc.gamma1       = addGam @v1 (ValGamInfo (TVar @nv1)) @lhs.gamma
+                 (loc.nv2
+                 ,loc.uid22)      = newTyVarId @uid11
+                 n.gamma          = addGam @v2 (ValGamInfo (TVar @nv2)) @gamma1
 
-                 loc.tym            = foTy @m.fo
-                 loc.cm             = foConstr @m.fo
-                 ((loc.tm1,loc.tm2)
-                 ,loc.errm)         = case ( (isProdType @tym)) of --prueba de que es prodtype
-                                            Nothing   -> ((TyAny,TyAny) , [ErrGen "Error"])
+                 loc.tym          = foTy @m.fo
+                 loc.cm           = foConstr @m.fo
+                 ((loc.tm1
+                  ,loc.tm2)
+                 ,loc.errm)       = case ( (isProdType @tym)) of --prueba de que es prodtype
+                                            Nothing        -> ((TyAny,TyAny) , [ErrGen "Error no es del tipo producto"])
                                             (Just (t1,t2)) -> ((t1,t2), [])
 
                  (loc.tm1_
-                 ,loc.errm1)          = unify @ty1  @tm1
+                 ,loc.errm1)      = unify @ty1  @tm1
                  (loc.tm2_
-                 ,loc.errm2)          = unify @ty2  @tm2
+                 ,loc.errm2)      = unify @ty2  @tm2
 
-                 lhs.fo               = @n.fo { foErrL = @err1 ++ @err2 ++ @errm ++ @errm1 ++ @errm2
+                 lhs.fo           = @n.fo { foErrL = @err1 ++ @err2 ++ @errm ++ @errm1 ++ @errm2
                                                }
 
 
@@ -181,10 +185,10 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  loc.c            = foConstr @p.fo
                  (loc.t
                  ,loc.err)        = case ( (isUnType @ty)) of
-                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            Nothing        -> (TyAny, [ErrGen "Error no es del tipo Unity"])
                                             (Just (t1,t2)) -> (TBool, [])
                  loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = @t
+                 lhs.fo           = @fo { foTy     = @t
                                           , foErrL = @err
                                         }
 
@@ -192,10 +196,10 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  loc.c            = foConstr @p.fo
                  (loc.t
                  ,loc.err)        = case ( (isUnType @ty)) of
-                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            Nothing        -> (TyAny, [ErrGen "Error no es del tipo Unity"])
                                             (Just (t1,t2)) -> (TBool, [])
                  loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = @t
+                 lhs.fo           = @fo { foTy     = @t
                                           , foErrL = @err
                                         }
 
@@ -203,10 +207,10 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  loc.c            = foConstr @p.fo
                  (loc.t
                  ,loc.err)        = case ( (isUnType @ty)) of
-                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            Nothing        -> (TyAny, [ErrGen "Error no es del tipo Unity"])
                                             (Just (t1,t2)) -> (t1, [])
                  loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = @t
+                 lhs.fo           = @fo { foTy     = @t
                                           , foErrL = @err
                                         }
 
@@ -214,83 +218,191 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  loc.c            = foConstr @p.fo
                  (loc.t
                  ,loc.err)        = case ( (isUnType @ty)) of
-                                            Nothing   -> (TyAny, [ErrGen "Error"])
+                                            Nothing        -> (TyAny, [ErrGen "Error no es del tipo Unity"])
                                             (Just (t1,t2)) -> (t2, [])
                  loc.fo           = emptyFo
-                 lhs.fo           = @fo { foTy = @t
+                 lhs.fo           = @fo { foTy     = @t
                                           , foErrL = @err
                                         }
 
-       | Case    loc.tym           = foTy     @m.fo            --tipo m
-                 loc.cm            = foConstr @m.fo
+       | Case    loc.tym          = foTy     @m.fo            --tipo m
+                 loc.cm           = foConstr @m.fo
 
-                 ((loc.t1,loc.t2)
-                 ,loc.errm)        = case ( (isUnType @tym)) of   -- m es union?
-                                            Nothing   -> ((TyAny,TyAny), [ErrGen "Error"])
+                 ((loc.t1
+                   ,loc.t2)
+                 ,loc.errm)       = case ( (isUnType @tym)) of   -- m es union?
+                                            Nothing        -> ((TyAny,TyAny), [ErrGen "Error no es del tipo Unity"])
                                             (Just (t1,t2)) -> ((t1,t2), [])
 
-                  (loc.tyv1_          --variable1
-                 ,loc.errv1)         = valGamLookupType @v1 @lhs.gamma
+                 (loc.tyv1_       --variable1
+                 ,loc.errv1)      = valGamLookupType @v1 @lhs.gamma
                  (loc.uidv1
                  ,loc.tyv1
-                 ,loc.cv1)           = instType @lhs.uid @tyv1_ --tipo var1
+                 ,loc.cv1)        = instType @lhs.uid @tyv1_ --tipo var1
 
-                 (loc.tyv2_          --variable2
-                 ,loc.errv2)         = valGamLookupType @v2 @lhs.gamma
+                 (loc.tyv2_       --variable2
+                 ,loc.errv2)      = valGamLookupType @v2 @lhs.gamma
                  (loc.uidv2
                  ,loc.tyv2
-                 ,loc.cv2)           = instType @lhs.uid @tyv2_ --tipo var2
+                 ,loc.cv2)        = instType @lhs.uid @tyv2_ --tipo var2
 
-                 (loc.nv1,loc.uid1 ) = newTyVarId @lhs.uid                       --nuevo gamma
-                 n1.gamma           = addGam @v1 (ValGamInfo (TVar @nv1)) @lhs.gamma
+                 (loc.nv1
+                 ,loc.uid1)       = newTyVarId @lhs.uid                       --nuevo gamma var1
+                 n1.gamma         = addGam @v1 (ValGamInfo (TVar @nv1)) @lhs.gamma
 
-                 (loc.nv2,loc.uid2 ) = newTyVarId @lhs.uid                       --nuevo gamma
-                 n2.gamma           = addGam @v2 (ValGamInfo (TVar @nv2)) @lhs.gamma
+                 (loc.nv2
+                 ,loc.uid2)       = newTyVarId @lhs.uid                       --nuevo gamma var2
+                 n2.gamma         = addGam @v2 (ValGamInfo (TVar @nv2)) @lhs.gamma
 
 
 
                  (loc.tu1_
-                 ,loc.erru1)          = unify @t1  @tyv1
+                 ,loc.erru1)      = unify @t1  @tyv1
                  (loc.tu2_
-                 ,loc.erru2)          = unify @t2  @tyv2
+                 ,loc.erru2)      = unify @t2  @tyv2
 
                  (loc.cun
-                 ,loc.errun)          = unify (foTy @n1.fo)  (foTy @n2.fo)       -- comparo tipos n1 y n2
-
+                 ,loc.errun)      = unify (foTy @n1.fo)  (foTy @n2.fo)       -- comparo tipos n1 y n2
                  --mirar
-                 loc.fo          = emptyFo
-                 lhs.fo          = @fo  {  foTy = @cun <+> @tyv2
-                                         , foErrL = @errm ++ @errv1 ++ @errv2 ++ @erru1 ++ @erru2 ++ @errun
-                                        }
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo  {  foTy   = @cun <+> @tyv2
+                                          , foErrL = @errm ++ @errv1 ++ @errv2 ++ @erru1 ++ @erru2 ++ @errun
+                                         }
 
 -------------------------------------------------------------------------------------------
 
-       | Record  --(loc.l,loc.ex)       = head(@e)
-                loc.ex       = (head @e.fo)
-                loc.f        = (snd @ex)
-                loc.d        = foTy @f.fo
-                --(loc.l,
-                --    loc.t) = @f
-                -- loc.t      = (@el.fo)
-                -- loc.th     = @t
-                loc.fo           = emptyFo
-                lhs.fo           = @fo {
-                                        foTy = @d
+       | Record  loc.t            = (@e.fo)
+                 loc.l            = f1 @t
+                 loc.err         = case revis @l of
+                                        Nothing -> []
+                                        Just e -> [ErrGen e]
+                 loc.l_           = TRecord @l
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo {
+                                         foTy = @l_
+                                         , foErrL = @err
+                                        }
+
+       | RecSelec
+                 loc.l_           = (foTy @v.fo)
+                 (loc.t
+                 ,loc.err)        = case (isRecordType @l_) of
+                                        Nothing   -> (TyAny , [ErrGen "Error no es del tipo record"])
+                                        Just t    -> (f2 @l t)
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo {
+                                         foTy = @t
+                                         , foErrL = @err
+                                      }
+
+       | RecWith
+                 (n.gamma,
+                 loc.lt,
+                 loc.ler)         = f3 @lhs.uid @lhs.gamma @lhs.gamma @v [] []
+                                            --new gamma, lista de tipos de var, lista de errores de estos
+
+                 loc.tym          = foTy @m.fo
+                 loc.cm           = foConstr @m.fo
+
+                 (loc.rec
+                 ,loc.errm)       = case ( (isRecordType @tym)) of --prueba de que es Recordtype
+                                        Nothing   -> ([] , [ErrGen "Error no es del tipo record"])
+                                        Just lTip -> (lTip, [])
+
+                 (loc.tm_
+                 ,loc.errm1)      = unify (TRecord @lt)  (TRecord @rec)
+
+                  lhs.fo          = @n.fo {
+                                          foErrL = @errm ++ @errm1
                                     }
 
+------------------------------------------------------------------------------------------
+
+        | Variant
+                 loc.lt           = let
+                                        (TRec l t) = foTy @m.fo
+                                    in (l,t)
+                 loc.l            = @v ++ [@lt]
+                 loc.t            = TVariant @l
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo {
+                                         foTy = @t
+                                        }
+
+        | Is     loc.ty           = foTy @e.fo
+                 loc.c            = foConstr @e.fo
+                 (loc.t
+                 ,loc.err)        = case ( (isVariantType @ty)) of
+                                            Nothing         -> (TyAny, [ErrGen "Error no es del tipo Variant"])
+                                            (Just l)        -> (TBool, [])
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy     = @t
+                                          , foErrL = @err
+                                        }
+
+        | As     loc.ty           = foTy @e.fo
+                 loc.c            = foConstr @e.fo
+                 (loc.t
+                 ,loc.err)        = case ( (isVariantType @ty)) of
+                                            Nothing         -> (TyAny, [ErrGen "Error no es del tipo Variant"])
+                                            Just li         -> (f2 @l li)
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo { foTy     = @t
+                                          , foErrL = @err
+                                        }
+
+        | VarCase
+                 loc.tym          = foTy @m.fo
+                 loc.cm           = foConstr @m.fo
+                 (loc.l1
+                 ,loc.err)        = case ( (isVariantType @tym)) of
+                                            Nothing         -> ([], [ErrGen "Error no es del tipo Variant"])
+                                            Just li         -> (li, [])
+                 loc.l2          = f4 (@l.fo)
+
+
+                 loc.tyv1_       = f5  @l1 @l2
+
+
+                 -- loc.t            = foTy @tym.fo
+                 -- loc.cm           = foConstr @m.fo
+
+                 loc.fo           = emptyFo
+                 lhs.fo           = @fo  {  foTy   = @tyv1_
+                                        , foErrL = @err
+                                        }
+
+
+
+ATTR Recs Vars [gamma : ValGam | uid : TyVarId | fo USE {:} {[]} : {[FIOut]} ]
+
+SEM Rec | Rec  loc.t_             = foTy @v.fo
+               loc.ty             = TRec @l @t_
+               loc.fo             = emptyFo
+               lhs.fo             = @fo { foTy = @ty }
+
+SEM Val | Val
+               (loc.t_              --variable
+                ,loc.errv1)      = valGamLookupType @v @lhs.gamma
+               (loc.uidv
+                ,loc.t2_
+                ,loc.cv)        = instType @lhs.uid @t_ --tipo var1
 
 
 
 
+               (loc.nv
+                ,loc.uid)        = newTyVarId @lhs.uid                   --nuevo gamma var
+                n.gamma         = addGam @v (ValGamInfo (TVar @nv)) @lhs.gamma
 
 
+               loc.t1_            = foTy @n.fo
 
-
-ATTR Exprs [gammma : ValGam | uid : TyVarId | fo USE {:} {[]} : {[(HsName, FIOut)]} ]
-
-SEM Expr | lhs.fo =
+               loc.ty             = TVal @l @t2_ @t1_
+               loc.fo             = emptyFo
+               lhs.fo             = @fo { foTy = @ty }
 
 ATTR RootAbs [ || fo : FIOut ]
 
-SEM RootAbs | RootAbs exp.gamma = emptyGam
-                      exp.uid   = zeroTyVarId
+SEM RootAbs | RootAbs exp.gamma   = emptyGam
+                      exp.uid     = zeroTyVarId

@@ -1,6 +1,6 @@
 module Main where
 
-import UU.Parsing
+import UU.Parsing as Par
 import UU.Scanner
 import UU.Pretty
 import Type
@@ -18,7 +18,20 @@ import System.Environment(getArgs)
 
 -- expr0 = RootAbs (Record [(HNm "x",EInt 1), (HNm "x", EInt 1)])
 
-expr0 = RootAbs (Record [(HNm "i", EBool True)])
+-- expr0 = RootAbs (Record [Rec "i" (EBool True)])
+--expr0 = RootAbs (Record[Rec ("i")  (EBool True), Rec ("j")  (EInt 1), Rec ("k")  (EInt 1)])
+-- expr0 = RootAbs (Record[Rec (EInt 1), Rec  (EBool True)])
+-- expr0 = RootAbs (RecSelec "j" (Record[Rec ("i")  (EBool True), Rec ("j")  (EInt 1), Rec ("k")  (EInt 1)]))
+-- expr0 = RootAbs (Let (HNm "i") (EUnit Unidad) (RecWith [("x" , HNm "i")] (Record [Rec "j" (EUnit Unidad)]) (EInt 1)))
+
+
+--expr0 = RootAbs (Variant [("i",TInt) , ("j",TyAny)] (Rec "d" (EInt 1)))
+--expr0 = RootAbs (As (Variant [("i",TInt) , ("j",TyAny)] (Rec "d" (EInt 1))) "d")
+expr0 = RootAbs (Let (HNm "i") (EUnit Unidad)
+                    (VarCase (Variant [("l1",TInt) , ("l2",TyAny)] (Rec "d" (EInt 1)))
+                        [Val "l1" (HNm "i") (EInt 1)]))
+
+
 
 -- expr0 = RootAbs (Let (HNm "i")  (Abs (HNm "x") (EInt 1)) (EUnit Unidad))
 -- expr0 = RootAbs (Let (HNm "i")  (Abs (HNm "x") (Var (HNm "x"))) (Var (HNm "i")))
@@ -26,6 +39,7 @@ expr0 = RootAbs (Record [(HNm "i", EBool True)])
 -- expr0 = RootAbs (Let (HNm "id") (Abs (HNm "x") (Var (HNm "x"))) (Var (HNm "id")))
 
 -- expr0 = RootAbs (Let (HNm "i") (EUnit Unidad) (Let (HNm "y")  oken(EInt 1) (Var (HNm "y")))) --error
+-- expr0 = RootAbs (Let (HNm "i") (EBool False) (With (HNm "i") (HNm "i") (Prod (EBool True) (EBool False)) (EInt 1))) --error
 -- expr0 = RootAbs (Let (HNm "i") (EBool False) (With (HNm "i") (HNm "i") (Prod (EBool True) (EBool False)) (EInt 1))) --error
 -- expr0 = RootAbs (App (EInt 1) (EUnit Unidad))
 -- expr0 = RootAbs (EInt 1)
@@ -41,7 +55,7 @@ main = do let inh = Inh_RootAbs {}
               syn = wrap_RootAbs (sem_RootAbs expr0) inh
               fo  = fo_Syn_RootAbs syn
           if foHasErrs fo
-           then putStrLn "Errores tiene el programa"
+           then putStrLn $ "Errores tiene el programa" ++ (show $ foErrL fo)
            else putStrLn $ "No tiene errores tipo: " ++ (show $ foTy fo)
 
 
@@ -57,7 +71,7 @@ main = do let inh = Inh_RootAbs {}
 
 pRoot  = RootAbs <$> pExpr
 
-pInt   = EInt . string2int <$> pInteger
+pInt   = EInt . read <$> pInteger
 
 
 pTrue  = True      <$  pKey "True"
@@ -66,9 +80,11 @@ pBool  = EBool     <$> (pTrue <|> pFalse)
 pUnit  = EUnit     <$> (Unidad <$ pKey "(" <* pKey ")")
 
 
-
+-- psss = pKey "(" <*> pExpr <* pKey "("
 
 pVar   = Var . HNm <$> pVarid
+
+--pLabel = String <$> pString
 
 pLambda = Abs . HNm <$ pKey "\\" <*> pVarid <* pKey "->" <*> pExpr
 
@@ -120,48 +136,29 @@ pCasExp = Case
           <*> (HNm <$> pVarid) <* pKey "->" <*> pExpr <* pKey "|"
           <*> (HNm <$> pVarid) <* pKey "->" <*> pExpr
 
-pExpr = pUnit
-        <|> pBool
-        <|> pInt
-        <|> pVar
-        <|> pLambda
-        <|> pApp
-        <|> pLet
-        <|> pIsZero
-        <|> pIfExpr
-        <|> pProd
-        <|> pFstExp
-        <|> pSndExp
-        <|> pWithExp
-        <|> pInLExp
-        <|> pInRExp
-        <|> pIsLExp
-        <|> pIsRExp
-        <|> pAsLExp
-        <|> pAsRExp
-        <|> pCasExp
+---------------------------------------------------------------------
 
+pRec    = Rec   <$> pVarid <* pKey "=" <*> pExpr
 
-tUnit  = TUnit <$ pKey "Unit"
-tInt   = TInt  <$ pKey "Int"
-tBool  = TBool <$ pKey "Bool"
-tProd  = TProd <$ pKey "Prod" <*> pType <*> pType
+pRecordExp = Record <$ pKey "record" <* pKey "(" <*> pList ((pRec <* pKey ",") <|> pRec ) <* pKey ")"
 
-pType = tUnit
-    <|> tInt
-    <|> tBool
-    <|> tProd
+pValExp    = RecSelec <$> pVarid <* pKey "." <*> pExpr
 
+pRecWithExp    = RecWith
+          <$ pKey "withr" <* pKey "(" <*> pList (( pVarid <* pKey "=" Par.<+> (HNm <$> pVarid))) <* pKey ")"
+           <*  pKey ":=" <*> pExpr <* pKey "do" <*> pExpr
 
+--------------------------------------------------------------
 
+pVariantExp = Variant <$ pKey "variant" <* pKey "(" <*> pList (( pVarid <* pKey "=" Par.<+> pType ))
+                <* pKey ")" <* pKey "(" <*> pRec <* pKey ")"
 
-string2int = foldl (\val dig -> (10 * val + ord dig - ord '0')) 0
----------------
+pIs = Is <$ pKey "is" <*> pExpr <* pKey "," <*> pVarid
 
+pAs = As <$ pKey "as" <*> pExpr <* pKey "," <*> pVarid
+-- pVarCase = VarCase <pKey "varc" <* pExpr <* pList
 
-
-
-
+--------------------------------------------------------------
 
 lmbdScanTxt :: String -> [Token]
 lmbdScanTxt = lmbdScan (Pos 0 0 "")
@@ -172,31 +169,69 @@ process = do
   a <- parseIO pExpr (lmbdScanTxt "let i = False in case False of i -> True | i -> False")
   print a
 
-
-
-
-
-
 t p inp -- test parser p on input inp :t HsName
   = do  c <- parseIO p inp
         let   inh = Inh_RootAbs {}
               syn = wrap_RootAbs (sem_RootAbs c) inh
               fo  = fo_Syn_RootAbs syn
         if foHasErrs fo
-           then putStrLn "Errores tiene el programa"
+           then putStrLn $ "Errores tiene el programa" ++ (show $ foErrL fo)
            else putStrLn $ "No tiene errores tipo: " ++ (show $ foTy fo)
+
 -- IO
 mail = do
-    t pRoot (lmbdScan (Pos 0 0 "") "let i = False in case inLeft Bool, True of i -> True | i -> False")
+    t pRoot (lmbdScan (Pos 0 0 "") "as variant (t=Int) (k=1) , o")
+    -- t pRoot (lmbdScan (Pos 0 0 "") "let i = False in withr (l = i) := record ( y = False) do True ")
+    --t pRoot (lmbdScan (Pos 0 0 "") "y . record ( y = False)")
     -- t pRoot (lmbdScan (Pos 0 0 "") "inLeft Bool, True")
+    -- t pRoot (lmbdScan (Pos 0 0 "") "lr . record ( ld = False, l = 2)")
 
 kywrdtxt = ["True","False", "Bool", "Int", "fun", "Unit",
-            "app", "case", "of", "then", "with" , "do",
+            "app", "case", "of", "then", "with" , "do", "withr",
             "isZero", "if", "else", "fst", "snd",
             "inLeft", "inRight", "isLeft", "isRight",
-            "asLeft", "asRight", "rec", "let", "in",
-            "is", "as", "x"]
-kywrdops = [ "->", "=>", "::",  ":", "=", ".", "+", "\\" ]
+            "asLeft", "asRight", "record", "let", "in",
+            "is", "as", "x", "variant", "is", "as"]
+kywrdops = [ "->", "=>", "::",  ":", "=", ".", "+", "\\", ":=", ","]
 spcchrs  = "<,>()[]{}|"
-opchrs   = "-:=>.+\\"
+opchrs   = "-:=>.+\\,"
 lmbdScan = scan kywrdtxt kywrdops spcchrs opchrs
+
+tUnit  = TUnit <$ pKey "Unit"
+tInt   = TInt  <$ pKey "Int"
+tBool  = TBool <$ pKey "Bool"
+
+pType = tUnit
+    <|> tInt
+    <|> tBool
+
+pExpr = pUnit
+        <|> pBool
+        <|> pInt
+        <|> pVar
+        <|> pLambda
+        <|> pApp
+        <|> pLet
+        <|> pIsZero
+        <|> pIfExpr
+        -----
+        <|> pProd
+        <|> pFstExp
+        <|> pSndExp
+        <|> pWithExp
+        -----
+        <|> pInLExp
+        <|> pInRExp
+        <|> pIsLExp
+        <|> pIsRExp
+        <|> pAsLExp
+        <|> pAsRExp
+        <|> pCasExp
+        -----
+        <|> pRecordExp
+        <|> pValExp
+        <|> pRecWithExp
+        -----
+        <|> pVariantExp
+        <|> pIs
+        <|> pAs

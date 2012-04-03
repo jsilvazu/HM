@@ -50,10 +50,48 @@ DATA Expr | EInt    i:  {Int}
                     v2: {HsName}
                     n2: Expr
 
-          | Record  e : Exprs
+-- expresiones Record
+          | Record  e : Recs
 
-TYPE Exprs = [{(HsName, Expr)}]
+          | RecSelec
+                    l: {String}
+                    v: Expr
+
+          | RecWith v: {[(String,HsName)]} -- Vars
+                    m: Expr
+                    n: Expr
+
+-- expresiones Var
+          | Variant v: {[(String, Type)]}
+                    m: Rec
+
+          | Is      e: Expr
+                    l: {String}
+
+          | As      e: Expr
+                    l: {String}
+
+          | VarCase m: Expr
+                    l: Vars
+
+
+---------------------------------------------------------------------------------------
+
+DATA Rec  | Rec l: {String}
+                v: Expr
+
+TYPE Recs = [Rec]
+
+DATA Val  | Val l: {String}
+                v: {HsName}
+                n: Expr
+
+TYPE Vars = [Val]
+
+---------------------------------------
 
 DATA RootAbs | RootAbs exp : Expr
 
 DERIVING Expr : Show
+DERIVING Rec  : Show
+DERIVING Val  : Show
