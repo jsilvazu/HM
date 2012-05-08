@@ -4,7 +4,7 @@ import CommonTypes
 import TyVarId
 import SemTyVarId
 import Type
-import ParserT
+import Utiles
 import TypeHelper
 import Data.Maybe
 import UU.Util.Utils
@@ -265,15 +265,15 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  ,loc.errun)      = unify (foTy @n1.fo)  (foTy @n2.fo)       -- comparo tipos n1 y n2
                  --mirar
                  loc.fo           = emptyFo
-                 lhs.fo           = @fo  {  foTy   = @cun <+> @tyv2
+                 lhs.fo           = @fo  {  foTy   = @cun <+> foTy @n2.fo
                                           , foErrL = @errm ++ @errv1 ++ @errv2 ++ @erru1 ++ @erru2 ++ @errun
                                          }
 
 -------------------------------------------------------------------------------------------
 
        | Record  loc.t            = (@e.fo)
-                 loc.l            = f1 @t
-                 loc.err         = case revis @l of
+                 loc.l            = listPar @t
+                 loc.err         = case revisRep @l of
                                         Nothing -> []
                                         Just e -> [ErrGen e]
                  loc.l_           = TRecord @l
@@ -288,7 +288,7 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  (loc.t
                  ,loc.err)        = case (isRecordType @l_) of
                                         Nothing   -> (TyAny , [ErrGen "Error no es del tipo record"])
-                                        Just t    -> (f2 @l t)
+                                        Just t    -> (buscaLab @l t)
                  loc.fo           = emptyFo
                  lhs.fo           = @fo {
                                          foTy = @t
@@ -345,7 +345,7 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
                  (loc.t
                  ,loc.err)        = case ( (isVariantType @ty)) of
                                             Nothing         -> (TyAny, [ErrGen "Error no es del tipo Variant"])
-                                            Just li         -> (f2 @l li)
+                                            Just li         -> (buscaLab @l li)
                  loc.fo           = emptyFo
                  lhs.fo           = @fo { foTy     = @t
                                           , foErrL = @err
@@ -354,22 +354,29 @@ SEM Expr | EInt  loc.fo           = emptyFo --crear un FIOut vacio
         | VarCase
                  loc.tym          = foTy @m.fo
                  loc.cm           = foConstr @m.fo
+                 -- probar que es variant la expresión m
                  (loc.l1
                  ,loc.err)        = case ( (isVariantType @tym)) of
                                             Nothing         -> ([], [ErrGen "Error no es del tipo Variant"])
                                             Just li         -> (li, [])
-                 loc.l2          = f4 (@l.fo)
+
+                 --convertir el resto de entradas en una lista de 3
+                 (loc.ll1,loc.ll2)  = camList (@l.fo)
+
+                 (loc.tm_
+                 ,loc.errm1)        = unify (TVariant @l1)  (TVariant @ll1)
 
 
-                 loc.tyv1_       = f5  @l1 @l2
+                 loc.err2           = if (revTip @ll2 == True) then
+                                        []
+                                      else
+                                        [ErrGen "Error los tipos no coinciden en Variant"]
 
 
-                 -- loc.t            = foTy @tym.fo
-                 -- loc.cm           = foConstr @m.fo
 
                  loc.fo           = emptyFo
-                 lhs.fo           = @fo  {  foTy   = @tyv1_
-                                        , foErrL = @err
+                 lhs.fo           = @fo  {  foTy   = head(@ll2)
+                                        , foErrL = @err ++ @errm1 ++ @err2
                                         }
 
 

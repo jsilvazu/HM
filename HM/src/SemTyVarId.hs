@@ -7,5 +7,5 @@ import TyVarId
 newTyVarId :: TyVarId -> (TyVarId,TyVarId)
 newTyVarId n@(UID i) = (n,UID (i+1))
 
-liftType :: TyVarId -> Type 
+liftType :: TyVarId -> Type
 liftType v = TVar v

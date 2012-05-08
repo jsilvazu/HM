@@ -14,17 +14,18 @@ module CommonTypes(Err(..)
                   ,instType
                   ,Substitutable(..)
                   ,unify
-                  ,f1
-                  ,f2
+                  ,listPar
+                  ,buscaLab
                   ,f3
-                  ,revis
-                  ,f4
-                  ,f5) where
+                  ,revisRep
+                  ,camList
+                  ,revTip) where
 
 import Type
 import List
 import TyVarId
 import SemTyVarId
+import UU.Util.Utils
 import qualified Data.List as L
 import qualified TypeHelper as TH
 
@@ -166,10 +167,8 @@ unify (TProd a1 b1) (TProd a2 b2)   = let (c1,er1) = unify a1 a2
                                       in (c1 <+> c2, er1++er2)
 unify (TRecord a) (TRecord b)
                                     = unifyl a b
---                                          (c1,er) = unify a b
---                                      in (c1, er)
-
--- unify (TProd a1 b1)          _      = (emptyCnstr,[])
+unify (TVariant a) (TVariant b)
+                                    = unifyl a b
 
 unify (TSchema _ _)  _              = (emptyCnstr,[ErrUnify "An schema cannot be unified"])
 unify (TVar v) t
@@ -184,35 +183,36 @@ unify _                   _         = (emptyCnstr,[ErrUnify "types cannot be uni
 
 unifyl :: [(String,Type)] -> [(String,Type)] -> (C,ErrL)
 unifyl []     []                     = (emptyCnstr,[])
+unifyl _      []                     = (emptyCnstr,[ErrUnify "Error, no son compatibles"])
+unifyl []     _                      = (emptyCnstr,[ErrUnify "Error, no son compatibles"])
 unifyl (x:xs) (y:ys)                 = let
                                           (c1, er1) =  unify (snd x) (snd y)
                                           (c2, er2) =  unifyst (fst x) (fst y)
                                           (cn, ern) =  unifyl xs ys
                                       in (c1 <+> cn, er1 ++ er2 ++ ern)
-                                         --(c2 , er2 )
 
 unifyst :: String -> String -> (C,ErrL)
 unifyst l1 l2           = if l1 == l2
                             then (emptyCnstr,[])
                             else (emptyCnstr,[ErrUnify $ "Las var: " ++ (show l1) ++ " y " ++ (show l2) ++ "son diferentes. "])
 
-f1 :: [FIOut] -> [(String, Type)]
-f1 [] = []
-f1 (x:xs) = let
+listPar         :: [FIOut] -> [(String, Type)]
+listPar []      = []
+listPar (x:xs)  = let
                 (TRec l t) = foTy x
-            in (l,t) : f1 xs
+            in (l,t) : listPar xs
 
-
+--buscar si hay coincidencias de un label en una lista
 --f2 :: String -> [(String, Type)] -> (Type,a)
-f2 l []                 = (TyAny, [ErrGen ("No hay coincidencias con el label '" ++ l ++ "'")])
-f2 l (x:xs)             = if (l == fst x)
+buscaLab l []                 = (TyAny, [ErrGen ("No hay coincidencias con el label '" ++ l ++ "'")])
+buscaLab l (x:xs)             = if (l == fst x)
                             then (snd x, [])
-                            else f2 l xs
+                            else buscaLab l xs
 
 --f3 :: [HsName]
 f3 uid gam1 gam2 [] lt  ler = (gam2, lt, ler) --devuelve un gamma, una lista de tipos y una lista de errores
-f3 uid gam1 gam2 (x:xs) lt ler
-                    = let
+f3 uid gam1 gam2 (x:xs) lt ler =
+                      let
                          (ty_,err)     = valGamLookupType (snd x) gam1 --variable, error
                          (ui,ty,ctr)   = instType uid ty_ --uid, tipo var, constrain
                          (lvar, u)     = newTyVarId ui
@@ -222,47 +222,39 @@ f3 uid gam1 gam2 (x:xs) lt ler
                                          in s
                       in f3 ui gam1 lgam xs ((str,ty) : lt) (err : ler)
 
+-- Buscar si hay coincidencias con un label en una lista
 ff :: String -> [(String, Type)] -> Maybe (String, Type)
-ff s []     = Nothing
-ff s (x:xs) =
+ff s []         = Nothing
+ff s (x:xs)     =
             if s == fst x
               then Just x
               else ff s xs
 
---comparar::[(String, Type)] -> [(String, Type)] -> Bool
---[] []         = True
---_  []         = False
---[] _          = False
---(x:xs) (y:ys) = (fst x) == (fst y) && comparar xs ys
-revis :: [(String, Type)] -> Maybe String
-revis []    = Nothing
---revis [] ls = Just "Error, hay mas valores que no fueron verificados"
-revis (x:xs) = case ff (fst x) xs of
+-- Revisa si hay labels repetidos
+revisRep        :: [(String, Type)] -> Maybe String
+revisRep []     = Nothing
+revisRep (x:xs) = case ff (fst x) xs of
                     Just y -> Just ("El label '" ++ fst y ++ "' está repetido.")
-                    Nothing -> revis xs
+                    Nothing -> revisRep xs
 
---revis1 :: [String] -> [(String, Type)] -> Maybe String
---revis1 [] [] = Nothing
---revis1 [] ls = Just "Error, hay expresiones que no están asociadas"
---revis1 (x:xs) ls = case ff x ls of
---                    Nothing -> Just (x ++ " no tiene valores asociados")
---                    Just y -> revis1 xs (deleteBy (\a b -> (fst a) == (fst b)) y ls)
+-- entrada y entrega lista para los valores del case del variant
+camList         :: [FIOut] -> ([(String, Type)], [Type])
+camList []      = ([],[])
+camList (x:xs)  = let
+                    (TVal l v n) = foTy x
+                    (l1,l2) = camList xs
+                 in ((l, v):l1,n:l2)
 
-f4 :: [FIOut] -> ([(String, Type, Type)])
-f4 [] = []
-f4 (x:xs) = let
-                (TVal l v n) = foTy x
-            in (l,v, n) : f4 xs
-
-f5 :: [(String, Type)] -> [(String, Type, Type)] -> Type -> Type
-f5 l1 l2 ty = TyAny
-
---f4 uid gam lr = case lr of
---                [] -> []
---                (x:xs) -> let
---                               v =
---                                    (loc.tyv1_       --variable
---                                     ,loc.errv1)      = valGamLookupType @v1 @lhs.gamma
---                                     (loc.uidv1
---                                     ,loc.tyv1
---                                     ,loc.cv1)        = instType @lhs.uid @tyv1_ --tipo var1
+-- Revisa si una lista de es del mismo tipo
+revTip        :: [Type] -> Bool
+revTip []     = True
+revTip (x:xs) = let
+                    u = unify x (head xs)
+                in
+                    if (null (snd u)) then
+                        if (null (tail xs)) then
+                            True
+                        else
+                            revTip xs
+                    else
+                        False
