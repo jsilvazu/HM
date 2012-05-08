@@ -90,14 +90,14 @@ pFstExp = First
 pSndExp = Second
           <$ pKey "snd" <*> pExpr
 
--- <with>
+-- <with> pComm
 pWithExp =id <$ pKey "with" *>
-          (With <$ (pKey "(")
-            <*> (HNm <$> pVarid) <* pKey "," <*> (HNm <$> pVarid) <* pKey ")"
+          (With
+            <$ pKey "("<*> (HNm <$> pVarid) <* pKey "," <*> (HNm <$> pVarid) <* pKey ")"
             <* pKey ":=" <*> pExpr <* pKey "do" <*> pExpr
           <|>
           RecWith
-            <$> pParens(pList (pVarid <* pKey "=" Par.<+> (HNm <$> pVarid)))
+            <$> pParens(pList1 (pVarid <* pKey "=" Par.<+> (HNm <$> pVarid)))
             <* pKey ":=" <*> pExpr
             <* pKey "do" <*> pExpr
           )
@@ -127,7 +127,7 @@ pCasExp = id <$ pKey "case" *>
         <|>
         VarCase <$> pExpr
             <* pKey "of"
-            <*> pListSep (pSpec '|')
+            <*> pList1Sep (pSpec '|')
                 (Val <$> pVarid <* pKey "=" <*> (HNm <$> pVarid)
                     <* pKey "then" <*> pExpr)
         )
@@ -136,14 +136,14 @@ pCasExp = id <$ pKey "case" *>
 
 pRec    = Rec   <$> pVarid <* pKey "=" <*> pExpr
 
-pRecordExp = Record <$ pKey "record" <*> pParens(pCommas (pRec))
+pRecordExp = Record <$ pKey "record" <*> pParens(pList1Sep (pSpec ',')  (pRec)) --pCommas
 
 pValExp = RecSelec <$> pVarid <* pKey "." <*> pExpr
 
 --------------------------------------------------------------
 
 pVariantExp = Variant <$ pKey "variant" <*>
-        pParens( pList ( pVarid <* pKey "=" Par.<+> pType )) <*>
+        pParens( pList1 ( pVarid <* pKey "=" Par.<+> pType )) <*>
         pParens(pRec)
 
 pIs = Is <$ pKey "is" <*> pExpr <* pKey "," <*> pVarid
@@ -185,9 +185,9 @@ main = do
          else
             process (head args)
 
--- IO
+-- IO <$
 mail = do
-     a <- parseIO pExpr (lmbdScanTxt "case 1 of l1=x1 then False | l2=x2 then 1")
+     a <- parseIO pExpr (lmbdScanTxt "True as ")
      print a
 
 kywrdtxt = ["True","False", "Bool", "Int", "fun", "Unit",
